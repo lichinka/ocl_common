@@ -1,6 +1,6 @@
 CC = gcc 
-CFLAGS = -Wall -fbounds-check
-INCS = -I. 
+CFLAGS = -g -O0 -Wall -fbounds-check
+INCS = -I. -I/usr/local/cuda/include
 LIBS = -lOpenCL
 OBJS = ocl_common.o multi_queue_test.o
 
