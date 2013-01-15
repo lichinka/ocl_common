@@ -1,16 +1,21 @@
-CC = gcc 
-CFLAGS = -g -O0 -Wall -fbounds-check
-INCS = -I. -I/usr/local/cuda/include
-LIBS = -lOpenCL
-OBJS = ocl_common.o multi_queue_test.o
+CC 		= gcc 
+CFLAGS 	= -g -O0 -Wall -fbounds-check -fPIC
+INCS 	= -I. -I/usr/local/cuda/include
+LIBS 	= -lOpenCL
+OBJS 	= ocl_common.o multi_queue_test.o
+BIN  	= cl_test
+BINLIB	= libocl_common.so
 
-all: cl_test 
+all: $(BIN) $(BINLIB)
 
-cl_test: $(OBJS)
+$(BIN): $(OBJS)
 	$(CC) $(CFLAGS) $(INCS) -o $@ $(OBJS) $(LIBS)
+
+$(BINLIB): $(OBJS)
+	$(CC) $(CFLAGS) $(INCS) -shared -Wl,-soname,$@ -o $@ ocl_common.o $(LIBS)
 
 .c.o:
 	$(CC) $(CFLAGS) $(INCS) -c $< -o $@
 
 clean:
-	rm -f *.o cl_test
+	rm -f $(OBJS) $(BIN) $(BINLIB)
