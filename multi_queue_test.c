@@ -54,8 +54,10 @@ int main(int argc, char **argv)
   cl_kernel         kernel;
 
   num_queues = 4;
-  set_opencl_env_multiple_queues(num_queues, &list_queues, &context);
-
+  printf ("Trying to initialize %d execution queues ...\n", num_queues);
+  set_opencl_env_multiple_queues (num_queues, &list_queues, &context);
+ 
+  printf ("Building kernel ...\n");
   build_kernel (&context, "numbering", &kernel_source, NULL, &kernel);
 
   int i, j;
@@ -72,11 +74,12 @@ int main(int argc, char **argv)
         int wait_status = clWaitForEvents(1, &(events[j]));
         check_error(wait_status, "Wait events");
       }
+      printf ("Enqueing job on the queue number %d ...\n", j);
       enqueue_job(&context, &kernel, &(list_queues[j]), &(events[j]));
-
     }
   }
 
+  printf ("Closing the OpenCL environment\n");
   release_opencl(num_queues, &list_queues, &context);
 
   return 0;
