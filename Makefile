@@ -1,10 +1,10 @@
-CC 		= gcc 
+CC 	= gcc
 CFLAGS 	= -g -O0 -Wall -fbounds-check -fPIC
-INCS 	= -I. -I/usr/local/cuda/include
-LIBS 	= -lOpenCL
+INCS 	= -I. -I$(HOME)/AMD_SDK/include
+LIBS 	= -L$(HOME)/AMD_SDK/lib/x86_64 -lOpenCL
 OBJS 	= ocl_common.o multi_queue_test.o
 BIN  	= cl_test
-BINLIB	= libocl_common.so
+BINLIB	= liboclcommon.so
 
 all: $(BIN) $(BINLIB)
 
