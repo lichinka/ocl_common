@@ -75,7 +75,7 @@ int main(int argc, char **argv)
         check_error(wait_status, "Wait events");
       }
       printf ("Enqueing job on the queue number %d ...\n", j);
-      enqueue_job(&context, &kernel, &(list_queues[j]), &(events[j]));
+      enqueue_job (&context, &kernel, &(list_queues[j]), &(events[j]));
     }
   }
 

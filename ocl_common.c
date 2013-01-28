@@ -119,7 +119,7 @@ static void print_opencl_error (int error)
 /**
  * Checks that the structure passed has been correctly initialized.-
  */
-static void check_is_initialized (OCL_objects *ocl_obj)
+static void check_is_initialized (OCL_object *ocl_obj)
 {
     if (ocl_obj->is_initialized == 0)
     {
@@ -134,7 +134,7 @@ static void check_is_initialized (OCL_objects *ocl_obj)
 /**
  * Checks that the command queue with this index exists.-
  */
-static void check_queue (OCL_objects *ocl_obj,
+static void check_queue (OCL_object *ocl_obj,
                          int queue_index)
 {
     if (queue_index >= ocl_obj->queue_count)
@@ -195,12 +195,12 @@ void print_device_information (cl_device_id *device)
  * Initializes the OpenCL platform. 
  * This function should be called before any other one.
  *
- * ocl_obj          A pointer to the uninitialized OCL_objects structure on
+ * ocl_obj          A pointer to the uninitialized OCL_object structure on
  *                  the user's side;
  * number_of_queues the number of queues to initialize.-
  *
  */
-void init_opencl (OCL_objects *ocl_obj, int number_of_queues)
+void init_opencl (OCL_object *ocl_obj, int number_of_queues)
 {
     int i;
 
@@ -305,45 +305,56 @@ int set_device_and_context (cl_platform_id *platform,
                             cl_device_id *device, 
                             cl_context *context)
 {
-  int status;
+    int status;
 
-  uint          num_devices;
-  cl_device_id *list_devices;
+    uint          num_devices;
+    cl_device_id *list_devices;
 
-  uint           device_number = 0; /* Get first device it sees */
-  cl_device_type device_type   = CL_DEVICE_TYPE_GPU;
+    uint           device_number = 0; /* Get first device it sees */
+    cl_device_type device_type   = CL_DEVICE_TYPE_GPU;
 
-  status = clGetDeviceIDs (*platform, device_type, 0, NULL, &num_devices);
-  if (status == CL_DEVICE_NOT_FOUND)
-  {
-      fprintf (stderr,
-               "GPU not found. Falling back to CPU.\n");
-      device_type = CL_DEVICE_TYPE_CPU;
-  }
-  check_error (status, "Get device ID");
+    status = clGetDeviceIDs (*platform, device_type, 0, NULL, &num_devices);
 
-  if (num_devices > 0)
-  {
-    list_devices = malloc(num_devices * sizeof(cl_device_id));
+    //
+    // if a GPU was not found, try with the CPU
+    //
+    if (status == CL_DEVICE_NOT_FOUND)
+    {
+        fprintf (stderr,
+                 "*** WARNING: GPU not found. Trying with the CPU.\n");
+        device_type = CL_DEVICE_TYPE_CPU;
+        status = clGetDeviceIDs (*platform, device_type, 0, NULL, &num_devices);
+    }
 
-    /* Set a device */
-    status = clGetDeviceIDs(*platform, device_type, num_devices, list_devices, NULL);
-    check_error(status, "Get device ID");
-    *device = list_devices[device_number];
+    check_error (status, "Get device ID");
 
-    print_device_information(device);
+    if (num_devices > 0)
+    {
+        list_devices = malloc(num_devices * sizeof(cl_device_id));
 
-    free(list_devices);
-  } else {
-    printf("No device available.\n");
-    return 0;
-  }
+        /* Set a device */
+        status = clGetDeviceIDs(*platform, device_type, num_devices, list_devices, NULL);
+        check_error(status, "Get device ID");
+        *device = list_devices[device_number];
 
-  /* Set a context */
-  *context = clCreateContext(NULL, 1, device, NULL, NULL, &status);
-  check_error(status, "Create Context");
+        print_device_information(device);
 
-  return 1;
+        free(list_devices);
+    } 
+    else
+    {
+        fprintf (stderr,
+                 "*** WARNING: Sorry, no OpenCL device could be found.\n");
+        return 0;
+    }
+
+    //
+    // Set a context
+    //
+    *context = clCreateContext (NULL, 1, device, NULL, NULL, &status);
+    check_error (status, "Create Context");
+
+    return 1;
 }
 
 
@@ -396,14 +407,14 @@ void set_opencl_env_multiple_queues(int num_queues, cl_command_queue **list_queu
 /**
  * Attaches the received value as a kernel argument.-
  *
- * ocl_obj          A pointer to the initialized OCL_objects structure on the
+ * ocl_obj          A pointer to the initialized OCL_object structure on the
  *                  user's side;
  * arg_index        argument index in the kernel-function prototype;
  * arg_size         size (in bytes) of the argument being passed;
  * arg_value_ptr    pointer to the argument value.-
  *
  */
-void set_kernel_value_arg (OCL_objects *ocl_obj,
+void set_kernel_value_arg (OCL_object *ocl_obj,
                            cl_uint arg_index, 
                            size_t arg_size, 
                            const void *arg_value_ptr)
@@ -428,13 +439,13 @@ void set_kernel_value_arg (OCL_objects *ocl_obj,
 /**
  * Attaches the received memory object as a kernel argument.-
  *
- * ocl_obj          A pointer to the initialized OCL_objects structure on the
+ * ocl_obj          A pointer to the initialized OCL_object structure on the
  *                  user's side;
  * arg_index        argument index in the kernel-function prototype;
  * arg_value_ptr    pointer to the argument value.-
  *
  */
-void set_kernel_mem_arg (OCL_objects *ocl_obj,
+void set_kernel_mem_arg (OCL_object *ocl_obj,
                          cl_uint arg_index, 
                          const void *arg_value_ptr)
 {
@@ -458,13 +469,13 @@ void set_kernel_mem_arg (OCL_objects *ocl_obj,
 /**
  * Attaches the received integer value as a kernel argument.-
  *
- * ocl_obj          A pointer to the initialized OCL_objects structure on the
+ * ocl_obj          A pointer to the initialized OCL_object structure on the
  *                  user's side;
  * arg_index        argument index in the kernel-function prototype;
  * arg_value_ptr    pointer to the argument value.-
  *
  */
-void set_kernel_int_arg (OCL_objects *ocl_obj,
+void set_kernel_int_arg (OCL_object *ocl_obj,
                          cl_uint arg_index, 
                          const int *arg_value_ptr)
 {
@@ -479,13 +490,13 @@ void set_kernel_int_arg (OCL_objects *ocl_obj,
 /**
  * Attaches the received float value as a kernel argument.-
  *
- * ocl_obj          A pointer to the initialized OCL_objects structure on the
+ * ocl_obj          A pointer to the initialized OCL_object structure on the
  *                  user's side;
  * arg_index        argument index in the kernel-function prototype;
  * arg_value_ptr    pointer to the argument value.-
  *
  */
-void set_kernel_float_arg (OCL_objects *ocl_obj,
+void set_kernel_float_arg (OCL_object *ocl_obj,
                            cl_uint arg_index, 
                            const float *arg_value_ptr)
 {
@@ -500,13 +511,13 @@ void set_kernel_float_arg (OCL_objects *ocl_obj,
 /**
  * Attaches the received double value as a kernel argument.-
  *
- * ocl_obj          A pointer to the initialized OCL_objects structure on the
+ * ocl_obj          A pointer to the initialized OCL_object structure on the
  *                  user's side;
  * arg_index        argument index in the kernel-function prototype;
  * arg_value_ptr    pointer to the argument value.-
  *
  */
-void set_kernel_double_arg (OCL_objects *ocl_obj,
+void set_kernel_double_arg (OCL_object *ocl_obj,
                            cl_uint arg_index, 
                            const double *arg_value_ptr)
 {
@@ -521,13 +532,13 @@ void set_kernel_double_arg (OCL_objects *ocl_obj,
 /**
  * Marks a kernel parameter as local memory.-
  *
- * ocl_obj          A pointer to the initialized OCL_objects structure on the
+ * ocl_obj          A pointer to the initialized OCL_object structure on the
  *                  user's side;
  * arg_index        argument index in the kernel-function prototype;
  * arg_size         size (in bytes) of the allocated local memory.-
  *
  */
-void set_local_mem (OCL_objects *ocl_obj,
+void set_local_mem (OCL_object *ocl_obj,
                     cl_uint arg_index, 
                     size_t arg_size)
 {
@@ -553,13 +564,13 @@ void set_local_mem (OCL_objects *ocl_obj,
 /**
  * Creates and returns a OpenCL buffer, i.e. cl_mem object.
  *
- * ocl_obj      A pointer to the initialized OCL_objects structure on the
+ * ocl_obj      A pointer to the initialized OCL_object structure on the
  *              user's side;
  * flags        memory flags, as defined by OpenCL;
  * size         size (in bytes) of the buffer to create.-
  *
  */
-cl_mem create_buffer (OCL_objects *ocl_obj,
+cl_mem create_buffer (OCL_object *ocl_obj,
                       cl_mem_flags flags, 
                       size_t size)
 {
@@ -577,10 +588,10 @@ cl_mem create_buffer (OCL_objects *ocl_obj,
 
 
 /**
- * Reads an OpenCL buffer from the device, waiting for the operation to
- * finish before returning.
+ * Reads an OpenCL buffer from the device, returning a pointer to the 
+ * associated `cl_event` object.
  *
- * ocl_obj      A pointer to the initialized OCL_objects structure on the
+ * ocl_obj      A pointer to the initialized OCL_object structure on the
  *              user's side;
  * queue_index  index of the command queue on which the read is performed;
  * cl_mem_ptr   pointer to a valid cl_mem object, from which to copy;
@@ -588,11 +599,11 @@ cl_mem create_buffer (OCL_objects *ocl_obj,
  * target_ptr   pointer to the data to which to copy, on the host.-
  *
  */
-void read_buffer_blocking (OCL_objects *ocl_obj,
-                           int queue_index,
-                           cl_mem *cl_mem_ptr, 
-                           size_t size, 
-                           void *target_ptr)
+cl_event* read_buffer (OCL_object *ocl_obj,
+                       int queue_index,
+                       cl_mem *cl_mem_ptr, 
+                       size_t size, 
+                       void *target_ptr)
 {
     check_is_initialized (ocl_obj);
     check_queue (ocl_obj, 
@@ -608,6 +619,37 @@ void read_buffer_blocking (OCL_objects *ocl_obj,
                                            &(ocl_obj->events[queue_index]));
     check_error (ocl_obj->status, 
                  "Read buffer");
+    return &(ocl_obj->events[queue_index]);
+}
+
+
+
+/**
+ * Reads an OpenCL buffer from the device, waiting for the operation to
+ * finish before returning.
+ *
+ * ocl_obj      A pointer to the initialized OCL_object structure on the
+ *              user's side;
+ * queue_index  index of the command queue on which the read is performed;
+ * cl_mem_ptr   pointer to a valid cl_mem object, from which to copy;
+ * size         size (in bytes) of the data to read from the device;
+ * target_ptr   pointer to the data to which to copy, on the host.-
+ *
+ */
+void read_buffer_blocking (OCL_object *ocl_obj,
+                           int queue_index,
+                           cl_mem *cl_mem_ptr, 
+                           size_t size, 
+                           void *target_ptr)
+{
+    cl_event *event;
+
+    event = read_buffer (ocl_obj,
+                         queue_index,
+                         cl_mem_ptr,
+                         size,
+                         target_ptr);
+    clWaitForEvents (1, event);
 }
 
 
@@ -616,7 +658,7 @@ void read_buffer_blocking (OCL_objects *ocl_obj,
  * Enqueues a write operation of an OpenCL buffer to the device, returning
  * the associated event object.
  *
- * ocl_obj      A pointer to the initialized OCL_objects structure on the
+ * ocl_obj      A pointer to the initialized OCL_object structure on the
  *              user's side;
  * queue_index  index of the command queue on which the write is performed;
  * cl_mem_ptr   pointer to a valid cl_mem object;
@@ -624,7 +666,7 @@ void read_buffer_blocking (OCL_objects *ocl_obj,
  * source_ptr   to the data from which to copy, on the host.-
  *
  */
-cl_event* write_buffer (OCL_objects *ocl_obj,
+cl_event* write_buffer (OCL_object *ocl_obj,
                         int queue_index,
                         cl_mem *cl_mem_ptr, 
                         size_t size, 
@@ -643,7 +685,7 @@ cl_event* write_buffer (OCL_objects *ocl_obj,
                                             NULL,
                                             &(ocl_obj->events[queue_index]));
     check_error (ocl_obj->status, 
-                 "Write buffer - non blocking");
+                 "Write buffer");
     return &(ocl_obj->events[queue_index]);
 }
 
@@ -653,7 +695,7 @@ cl_event* write_buffer (OCL_objects *ocl_obj,
  * Writes an OpenCL buffer to the device, waiting for the operation to
  * finish before returning.
  *
- * ocl_obj      A pointer to the initialized OCL_objects structure on the
+ * ocl_obj      A pointer to the initialized OCL_object structure on the
  *              user's side;
  * queue_index  index of the command queue on which the write is performed;
  * cl_mem_ptr   pointer to a valid cl_mem object;
@@ -661,26 +703,20 @@ cl_event* write_buffer (OCL_objects *ocl_obj,
  * source_ptr   to the data from which to copy, on the host.-
  *
  */
-void write_buffer_blocking (OCL_objects *ocl_obj,
+void write_buffer_blocking (OCL_object *ocl_obj,
                             int queue_index,
                             cl_mem *cl_mem_ptr, 
                             size_t size, 
                             const void *source_ptr)
 {
-    check_is_initialized (ocl_obj);
-    check_queue (ocl_obj, 
-                 queue_index);
-    ocl_obj->status = clEnqueueWriteBuffer (ocl_obj->queues[queue_index],
-                                            *cl_mem_ptr,
-                                            CL_TRUE,
-                                            0,
-                                            size,
-                                            source_ptr,
-                                            0,
-                                            NULL,
-                                            NULL);
-    check_error (ocl_obj->status, 
-                 "Write buffer - blocking");
+    cl_event *event;
+    
+    event = write_buffer (ocl_obj,
+                          queue_index,
+                          cl_mem_ptr,
+                          size,
+                          source_ptr);
+    clWaitForEvents (1, event);
 }
 
 
@@ -688,7 +724,7 @@ void write_buffer_blocking (OCL_objects *ocl_obj,
 /**
  * Executes the kernel, using the received 2D range, waiting for it to finish.
  *
- * ocl_obj          A pointer to the initialized OCL_objects structure on the
+ * ocl_obj          A pointer to the initialized OCL_object structure on the
  *                  user's side;
  * queue_index      index of the command queue on which the kernel execution is 
  *                  performed;
@@ -698,7 +734,7 @@ void write_buffer_blocking (OCL_objects *ocl_obj,
  * local_sizes      local execution range sizes (2 elements);
  *
  */
-void run_kernel_2D_blocking (OCL_objects *ocl_obj,
+void run_kernel_2D_blocking (OCL_object *ocl_obj,
                              int queue_index,
                              const size_t *global_offsets,
                              const size_t *global_sizes,
@@ -756,11 +792,11 @@ void release_opencl (int num_queues,
 /**
  * Deactivates OpenCL, deallocating all referenced memory.
  *
- * ocl_obj      A pointer to the initialized OCL_objects structure on the
+ * ocl_obj      A pointer to the initialized OCL_object structure on the
  *              user's side.-
  *
  */
-void deactivate_opencl (OCL_objects *ocl_obj)
+void deactivate_opencl (OCL_object *ocl_obj)
 {
     check_is_initialized (ocl_obj);
     release_opencl (ocl_obj->queue_count,
@@ -776,16 +812,16 @@ void deactivate_opencl (OCL_objects *ocl_obj)
 /**
  * Builds a kernel for a given device and context from a source file.-
  *
- * ocl_obj      A pointer to the initialized OCL_objects structure on the
+ * ocl_obj      A pointer to the initialized OCL_object structure on the
  *              user's side;
- * kernel_name  name of the kernel to activate;
  * file_name    file containing the OpenCL kernel code;
+ * kernel_name  name of the kernel to activate;
  * options      compile-time options, like include directories or defines.-
  *
  */
-void build_kernel_from_file (OCL_objects *ocl_obj,
-                             char *kernel_name, 
+void build_kernel_from_file (OCL_object *ocl_obj,
                              const char *file_name, 
+                             char *kernel_name, 
                              const char *options)
 {
     check_is_initialized (ocl_obj);
@@ -802,39 +838,47 @@ void build_kernel_from_file (OCL_objects *ocl_obj,
                  file_name);
         exit (1);
     }
-    build_kernel (&(ocl_obj->context),
-                  kernel_name,
-                  (const char **) &source,
-                  options,
-                  &(ocl_obj->kernel));
+    cl_program *prg = build_kernel (&(ocl_obj->context),
+                                    kernel_name,
+                                    (const char **) &source,
+                                    options,
+                                    &(ocl_obj->kernel));
+    ocl_obj->program = *prg;
+
+    //
+    // activate the kernel
+    //
+    activate_kernel (ocl_obj,
+                     kernel_name);
     free (source);
 }
 
 
 
 /**
- * Builds a kernel for a given device and context from string buffer.-
+ * Builds a kernel for a given device and context from string buffer, returning a pointer to the compiled `cl_program`.
  *
  */
-void build_kernel (cl_context *context, 
-                   char *kernel_name, 
-                   const char **kernel_source, 
-                   const char *options,
-                   cl_kernel *kernel)
+cl_program* build_kernel (cl_context *context, 
+                          char *kernel_name, 
+                          const char **kernel_source, 
+                          const char *options,
+                          cl_kernel *kernel)
 {
     int          status;
     cl_device_id device;
     uint         num_devices = 1;
     uint         num_strings_in_kernel_source = 1;
+    cl_program  *program = (cl_program *) malloc (sizeof (cl_program));
 
     get_device_from_context (context, &device);
-    cl_program program = clCreateProgramWithSource (*context, 
-                                                    num_strings_in_kernel_source, 
-                                                    kernel_source, 
-                                                    NULL, 
-                                                    &status);
+    *program = clCreateProgramWithSource (*context, 
+                                          num_strings_in_kernel_source, 
+                                          kernel_source, 
+                                          NULL, 
+                                          &status);
     check_error (status, "Create OCL program with source");
-    int build_status = clBuildProgram (program, 
+    int build_status = clBuildProgram (*program, 
                                        num_devices, 
                                        &device, 
                                        options,
@@ -846,20 +890,46 @@ void build_kernel (cl_context *context,
         int error_buffer_size = 102400;
         char error_buffer [error_buffer_size];
 
-        clGetProgramBuildInfo (program, 
+        clGetProgramBuildInfo (*program, 
                                device, 
                                CL_PROGRAM_BUILD_LOG, 
                                error_buffer_size, 
                                error_buffer, 
                                NULL);
         fprintf (stderr, 
-                 "*** Compilation failed. Log follows:\n\n%s\n", 
+                 "*** ERROR: Kernel compilation <%s> failed. Log follows:\n\n%s\n", 
+                 kernel_name,
                  error_buffer);
         exit (1);
     }
-    *kernel = clCreateKernel (program, 
-                              kernel_name, 
-                              NULL);
+    //
+    // activate the kernel
+    //
+    *kernel = clCreateKernel (*program,
+                              kernel_name,
+                              &status);
+    check_error (status, "Activate kernel");
+
+    //
+    // return the compiled program
+    //
+    return program;
+}
+
+
+
+/**
+ * Activates the specified kernel by name.
+ *
+ */
+void activate_kernel (OCL_object *ocl_obj,
+                      const char *kernel_name)
+{
+    int status;
+    ocl_obj->kernel = clCreateKernel (ocl_obj->program,
+                                      kernel_name,
+                                      &status);
+    check_error (status, "Activate kernel");
 }
 
 
