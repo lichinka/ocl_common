@@ -50,13 +50,14 @@ static void print_opencl_error (int error)
         case (CL_DEVICE_NOT_AVAILABLE):
             fprintf (stderr, "Device not available\n");
             break;
+        case (CL_INVALID_ARG_VALUE):
+            fprintf (stderr,
+                     "Invalid argument value\n");
+            break;
         case (CL_INVALID_ARG_SIZE):
             fprintf (stderr, "If the argument is not a memory object, [arg_size] does not match the size of the data type.\n");
             fprintf (stderr, "If the argument is a memory object, [arg_size] != sizeof(cl_mem).\n");
             fprintf (stderr, "If the argument is declared with the __local qualifier, [arg_size] is 0.\n");
-            break;
-        case (CL_INVALID_CONTEXT):
-            fprintf (stderr, "Invalid context\n");
             break;
         case (CL_INVALID_BINARY):
             fprintf (stderr, "Invalid binary\n");
@@ -66,6 +67,9 @@ static void print_opencl_error (int error)
             break;
         case (CL_INVALID_BUILD_OPTIONS):
             fprintf (stderr, "Invalid build options\n");
+            break;
+        case (CL_INVALID_CONTEXT):
+            fprintf (stderr, "Invalid context\n");
             break;
         case (CL_INVALID_DEVICE):
             fprintf (stderr, "Invalid device\n");
