@@ -253,6 +253,26 @@ void write_buffer_blocking (OCL_object *ocl_obj,
                             size_t size, 
                             const void *source_ptr);
 
+
+/**
+ * Executes the kernel, using the received 1D range, waiting for it to finish.
+ *
+ * ocl_obj          A pointer to the initialized OCL_object structure on the
+ *                  user's side;
+ * queue_index      index of the command queue on which the kernel execution is 
+ *                  performed;
+ * global_offsets   offsets used for the kernel range (1 element). If NULL
+ *                  is given, the offsets used are zero;
+ * global_sizes     global execution range sizes (1 element);
+ * local_sizes      local execution range sizes (1 element);
+ *
+ */
+void run_kernel_1D_blocking (OCL_object *ocl_obj,
+                             int queue_index,
+                             const size_t *global_offsets,
+                             const size_t *global_sizes,
+                             const size_t *local_sizes);
+
 /**
  * Executes the kernel, using the received 2D range, waiting for it to finish.
  *

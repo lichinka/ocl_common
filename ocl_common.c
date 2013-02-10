@@ -725,6 +725,50 @@ void write_buffer_blocking (OCL_object *ocl_obj,
 
 
 
+
+/**
+ * Executes the kernel, using the received 1D range, waiting for it to finish.
+ *
+ * ocl_obj          A pointer to the initialized OCL_object structure on the
+ *                  user's side;
+ * queue_index      index of the command queue on which the kernel execution is 
+ *                  performed;
+ * global_offsets   offsets used for the kernel range (1 element). If NULL
+ *                  is given, the offsets used are zero;
+ * global_sizes     global execution range sizes (1 element);
+ * local_sizes      local execution range sizes (1 element);
+ *
+ */
+void run_kernel_1D_blocking (OCL_object *ocl_obj,
+                             int queue_index,
+                             const size_t *global_offsets,
+                             const size_t *global_sizes,
+                             const size_t *local_sizes)
+{
+    size_t goff = 0;
+    check_is_initialized (ocl_obj);
+    check_queue (ocl_obj,
+                 queue_index);
+    if (global_offsets != NULL)
+        goff = *global_offsets;
+    
+    ocl_obj->status = clEnqueueNDRangeKernel (ocl_obj->queues[queue_index],
+                                              ocl_obj->kernel,
+                                              1,
+                                              &goff,
+                                              global_sizes,
+                                              local_sizes,
+                                              0,
+                                              NULL,
+                                              &(ocl_obj->events[queue_index]));
+    check_error (ocl_obj->status, 
+                 "Run kernel with 1D range");
+    clWaitForEvents (1,
+                     &(ocl_obj->events[queue_index]));
+}
+
+
+
 /**
  * Executes the kernel, using the received 2D range, waiting for it to finish.
  *
