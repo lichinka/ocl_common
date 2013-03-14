@@ -204,14 +204,18 @@ void print_device_information (cl_device_id *device)
  * number_of_queues the number of queues to initialize.-
  *
  */
-void init_opencl (OCL_object *ocl_obj, int number_of_queues)
+OCL_object* init_opencl (OCL_object *ocl_obj, int number_of_queues)
 {
     int i;
 
-    if (ocl_obj->is_initialized == 1)
+    if (ocl_obj != NULL)                                                                                         
         fprintf (stderr,
-                 "WARNING OpenCL has already been initialized [%d]\n",
-                 ocl_obj->is_initialized);
+                 "*** WARNING: initializing OpenCL context which is not NULL. This should cause at least a memory leak.\n");
+
+    ocl_obj = (OCL_object *) malloc (sizeof (OCL_object));
+    ocl_obj->context        = NULL;
+    ocl_obj->program        = NULL;
+    ocl_obj->is_initialized = 0;
 
     get_platform (&(ocl_obj->platform_id));
     set_device_and_context (&(ocl_obj->platform_id),
@@ -232,6 +236,8 @@ void init_opencl (OCL_object *ocl_obj, int number_of_queues)
     }
     ocl_obj->queue_count = number_of_queues;
     ocl_obj->is_initialized = 1;
+
+    return ocl_obj;
 }
 
 
@@ -278,7 +284,8 @@ void get_platform (cl_platform_id *platform)
 
 	if (num_platforms > 0)
 	{
-		list_platforms = malloc (num_platforms * sizeof (cl_platform_id));
+		list_platforms = (cl_platform_id *) calloc (num_platforms,
+                                                    sizeof (cl_platform_id));
 		status = clGetPlatformIDs (num_platforms, list_platforms, NULL);
 		check_error (status, "Get platform ID");
 
@@ -305,11 +312,11 @@ void get_platform (cl_platform_id *platform)
 
 
 
-int set_device_and_context (cl_platform_id *platform, 
-                            cl_device_id *device, 
-                            cl_context *context)
+void set_device_and_context (cl_platform_id *platform, 
+                             cl_device_id *device, 
+                             cl_context *context)
 {
-    int status;
+    int  status;
 
     uint          num_devices;
     cl_device_id *list_devices;
@@ -346,19 +353,22 @@ int set_device_and_context (cl_platform_id *platform,
         free(list_devices);
     } 
     else
-    {
         fprintf (stderr,
                  "*** WARNING: Sorry, no OpenCL device could be found.\n");
-        return 0;
+
+    //
+    // create a new context
+    //
+    if (*context == NULL)
+    {
+        *context = clCreateContext (NULL, 1, device, NULL, NULL, &status);
+        check_error (status, "Create Context");
     }
-
-    //
-    // Set a context
-    //
-    *context = clCreateContext (NULL, 1, device, NULL, NULL, &status);
-    check_error (status, "Create Context");
-
-    return 1;
+    else
+    {
+        status = clRetainContext (*context);
+        check_error (status, "Retain existing context");
+    }
 }
 
 
@@ -397,7 +407,6 @@ void set_opencl_env_multiple_queues(int num_queues, cl_command_queue **list_queu
   set_device_and_context(&platform, &device, context);
 
   *list_queues = malloc(num_queues * sizeof(cl_command_queue));
-
  
   for (i = 0; i < num_queues; i++)
   {
@@ -851,8 +860,10 @@ void deactivate_opencl (OCL_object *ocl_obj)
                     &(ocl_obj->queues),
                     &(ocl_obj->context));
 
-    // Free memory used by the list of events
+    // free memory
     free (ocl_obj->events);
+    free (ocl_obj->program);
+    free (ocl_obj);
 }
 
 
@@ -886,12 +897,17 @@ void build_kernel_from_file (OCL_object *ocl_obj,
                  file_name);
         exit (1);
     }
-    cl_program *prg = build_kernel (&(ocl_obj->context),
-                                    kernel_name,
-                                    (const char **) &source,
-                                    options,
-                                    &(ocl_obj->kernel));
-    ocl_obj->program = *prg;
+    //
+    // free the program object before building a new kernel
+    //
+    if (ocl_obj->program != NULL)
+        free (ocl_obj->program);
+
+    ocl_obj->program = build_kernel (&(ocl_obj->context),
+                                     kernel_name,
+                                     (const char **) &source,
+                                     options,
+                                     &(ocl_obj->kernel));
 
     //
     // activate the kernel
@@ -974,7 +990,7 @@ void activate_kernel (OCL_object *ocl_obj,
                       const char *kernel_name)
 {
     int status;
-    ocl_obj->kernel = clCreateKernel (ocl_obj->program,
+    ocl_obj->kernel = clCreateKernel (*(ocl_obj->program),
                                       kernel_name,
                                       &status);
     check_error (status, "Activate kernel");

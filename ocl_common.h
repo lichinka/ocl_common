@@ -18,7 +18,7 @@ typedef struct OCL_object
     cl_event          *events;
     cl_kernel         kernel;
     cl_context        context;
-    cl_program        program;
+    cl_program        *program;
     cl_device_id      device_id;
     cl_platform_id    platform_id;
     cl_command_queue  *queues;
@@ -36,7 +36,7 @@ typedef struct OCL_object
  * number_of_queues the number of queues to initialize.-
  *
  */
-void init_opencl (OCL_object *ocl_obj, int number_of_queues);
+OCL_object* init_opencl (OCL_object *ocl_obj, int number_of_queues);
 
 /**
  * Initializes the OpenCL platform. 
@@ -306,8 +306,8 @@ void check_error (int status, char *msg);
 /**
  * Internal helper functions not meant to be directly used within an application 
  */
-void print_device_information(cl_device_id *device);
+void print_device_information (cl_device_id *device);
 void get_platform (cl_platform_id *platform);
-int  set_device_and_context(cl_platform_id *platform, cl_device_id *device, cl_context *context);
+void set_device_and_context (cl_platform_id *platform, cl_device_id *device, cl_context *context);
 
 #endif /* COMMON_OCL */
