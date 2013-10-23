@@ -1,7 +1,7 @@
 CC 	= gcc
 CFLAGS 	= -g -O0 -Wall -fbounds-check -fPIC
-INCS 	= -I. -I$(HOME)/AMD_SDK/include
-LIBS 	= -L$(HOME)/AMD_SDK/lib/x86_64 -lOpenCL
+INCS 	= -I. -I$(ATISTREAMSDKROOT)/include
+LIBS 	= -L$(ATISTREAMSDKROOT)/lib/x86_64 -lOpenCL
 OBJS 	= ocl_common.o multi_queue_test.o
 BIN  	= cl_test
 BINLIB	= liboclcommon.so

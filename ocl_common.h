@@ -32,11 +32,15 @@ typedef struct OCL_object
  * Initializes the OpenCL platform. 
  * This function should be called before any other one.
  *
- * ocl_obj          A pointer to the OCL_object structure on the user's side;
- * number_of_queues the number of queues to initialize.-
+ * ocl_obj          A pointer to the uninitialized OCL_object structure on
+ *                  the user's side;
+ * number_of_queues the number of queues to initialize;
+ * device_hint      tries to select the device with the given id.-
  *
  */
-OCL_object* init_opencl (OCL_object *ocl_obj, int number_of_queues);
+OCL_object* init_opencl (OCL_object *ocl_obj,
+                         const int number_of_queues,
+                         const int device_hint);
 
 /**
  * Initializes the OpenCL platform. 
@@ -182,6 +186,14 @@ cl_mem create_buffer (OCL_object *ocl_obj,
                       size_t size);
 
 /**
+ * Clears an OpenCL buffer, i.e., cl_mem object.
+ *
+ * mem_obj      A pointer to the cl_mem object.-
+ *
+ */
+void release_buffer (cl_mem *mem_obj);
+
+/**
  * Reads an OpenCL buffer from the device, returning a pointer to the 
  * associated `cl_event` object.
  *
@@ -307,7 +319,23 @@ void check_error (int status, char *msg);
  * Internal helper functions not meant to be directly used within an application 
  */
 void print_device_information (cl_device_id *device);
+/**
+ * Queries the system for a OpenCL platform, returning it
+ * in the input parameter.-
+ *
+ * platform         Output parameter.-
+ */
 void get_platform (cl_platform_id *platform);
-void set_device_and_context (cl_platform_id *platform, cl_device_id *device, cl_context *context);
+
+/**
+ * Activates a devices and its context within the given platform.
+ *
+ * device_hint  tries to select the device with the given ID.-
+ *
+ */
+void set_device_and_context (cl_platform_id *platform, 
+                             cl_device_id *device, 
+                             cl_context *context,
+                             const int device_hint);
 
 #endif /* COMMON_OCL */

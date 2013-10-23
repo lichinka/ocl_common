@@ -201,16 +201,19 @@ void print_device_information (cl_device_id *device)
  *
  * ocl_obj          A pointer to the uninitialized OCL_object structure on
  *                  the user's side;
- * number_of_queues the number of queues to initialize.-
+ * number_of_queues the number of queues to initialize;
+ * device_hint      tries to select the device with the given id.-
  *
  */
-OCL_object* init_opencl (OCL_object *ocl_obj, int number_of_queues)
+OCL_object* init_opencl (OCL_object *ocl_obj,
+                         const int number_of_queues,
+                         const int device_hint)
 {
     int i;
 
     if (ocl_obj != NULL)                                                                                         
         fprintf (stderr,
-                 "*** WARNING: initializing OpenCL context which is not NULL. This should cause at least a memory leak.\n");
+                 "*** WARNING: initializing OpenCL context which is not NULL. This should at least cause a memory leak.\n");
 
     ocl_obj = (OCL_object *) malloc (sizeof (OCL_object));
     ocl_obj->context        = NULL;
@@ -220,7 +223,8 @@ OCL_object* init_opencl (OCL_object *ocl_obj, int number_of_queues)
     get_platform (&(ocl_obj->platform_id));
     set_device_and_context (&(ocl_obj->platform_id),
                             &(ocl_obj->device_id),
-                            &(ocl_obj->context));
+                            &(ocl_obj->context),
+                            device_hint);
     ocl_obj->queues = (cl_command_queue *) calloc (number_of_queues,
                                                    sizeof (cl_command_queue));
     ocl_obj->events = (cl_event *) calloc (number_of_queues,
@@ -256,7 +260,8 @@ void init_platform (cl_platform_id *platform,
     get_platform (platform);
     set_device_and_context (platform,
                             device,
-                            context);
+                            context,
+                            0);
     *queue = clCreateCommandQueue (*context, 
                                    *device, 
                                    0, 
@@ -269,6 +274,9 @@ void init_platform (cl_platform_id *platform,
 /**
  * Queries the system for a OpenCL platform, returning it
  * in the input parameter.-
+ *
+ * platform         Output parameter.-
+ *
  */
 void get_platform (cl_platform_id *platform)
 {
@@ -299,29 +307,37 @@ void get_platform (cl_platform_id *platform)
 			check_error (status, "Get platform info");
 
 			//
-			// save the first valid platform
+			// select the first valid platform
 			//
-			*platform = list_platforms[i];
-			break;
+            *platform = list_platforms[i];
+            break;
 		}
 		free (list_platforms);
 	}
 	else
-		fprintf (stderr, "*** ERROR: No OpenCL platforms found\n");
+		fprintf (stderr, 
+                 "*** ERROR: No OpenCL platforms found\n");
 }
 
 
 
+/**
+ * Activates a devices and its context within the given platform.
+ *
+ * device_hint  tries to select the device with the given ID.-
+ *
+ */
 void set_device_and_context (cl_platform_id *platform, 
                              cl_device_id *device, 
-                             cl_context *context)
+                             cl_context *context,
+                             const int device_hint)
 {
     int  status;
 
     uint          num_devices;
     cl_device_id *list_devices;
 
-    uint           device_number = 0; /* Get first device it sees */
+    uint           select_device;
     cl_device_type device_type   = CL_DEVICE_TYPE_GPU;
 
     status = clGetDeviceIDs (*platform, device_type, 0, NULL, &num_devices);
@@ -341,16 +357,24 @@ void set_device_and_context (cl_platform_id *platform,
 
     if (num_devices > 0)
     {
-        list_devices = malloc(num_devices * sizeof(cl_device_id));
+        if (device_hint < num_devices)
+            select_device = device_hint;
+        else
+            select_device = 0;
+
+        printf ("*** DEBUG: Trying to select device %d\n",
+                select_device);
+
+        list_devices = malloc (num_devices * sizeof(cl_device_id));
 
         /* Set a device */
         status = clGetDeviceIDs(*platform, device_type, num_devices, list_devices, NULL);
         check_error(status, "Get device ID");
-        *device = list_devices[device_number];
+        *device = list_devices[select_device];
 
-        print_device_information(device);
+        print_device_information (device);
 
-        free(list_devices);
+        free (list_devices);
     } 
     else
         fprintf (stderr,
@@ -363,11 +387,6 @@ void set_device_and_context (cl_platform_id *platform,
     {
         *context = clCreateContext (NULL, 1, device, NULL, NULL, &status);
         check_error (status, "Create Context");
-    }
-    else
-    {
-        status = clRetainContext (*context);
-        check_error (status, "Retain existing context");
     }
 }
 
@@ -404,7 +423,7 @@ void set_opencl_env_multiple_queues(int num_queues, cl_command_queue **list_queu
 
   get_platform (&platform);
 
-  set_device_and_context(&platform, &device, context);
+  set_device_and_context(&platform, &device, context, 0);
 
   *list_queues = malloc(num_queues * sizeof(cl_command_queue));
  
@@ -601,6 +620,22 @@ cl_mem create_buffer (OCL_object *ocl_obj,
 
 
 /**
+ * Clears an OpenCL buffer, i.e., cl_mem object.
+ *
+ * mem_obj      A pointer to the cl_mem object.-
+ *
+ */
+void release_buffer (cl_mem *mem_obj)
+{
+    cl_int status;
+    status = clReleaseMemObject (*mem_obj);
+    check_error (status, 
+                 "Release buffer");
+}
+
+
+
+/**
  * Reads an OpenCL buffer from the device, returning a pointer to the 
  * associated `cl_event` object.
  *
@@ -662,7 +697,10 @@ void read_buffer_blocking (OCL_object *ocl_obj,
                          cl_mem_ptr,
                          size,
                          target_ptr);
-    clWaitForEvents (1, event);
+    ocl_obj->status = clFinish (ocl_obj->queues[queue_index]);
+    check_error (ocl_obj->status,
+                 "Read buffer - blocking");
+    clReleaseEvent (*event);
 }
 
 
@@ -729,7 +767,10 @@ void write_buffer_blocking (OCL_object *ocl_obj,
                           cl_mem_ptr,
                           size,
                           source_ptr);
-    clWaitForEvents (1, event);
+    ocl_obj->status = clFinish (ocl_obj->queues[queue_index]);
+    check_error (ocl_obj->status,
+                 "Write buffer - blocking");
+    clReleaseEvent (*event);
 }
 
 
